@@ -4,8 +4,8 @@
 ## PRESENTATION
 
 MongoDB est un système de gestion de base de donnée de type NoSQL (base non relationnelle).
-Elle est scalable (repartissable sur plusieurs ordinateurs) et ne necessitant pas de schéma prédéfini des données.
-
+Elle est scalable (repartissable sur plusieurs serveurs).
+Elle ne nécessite ni schéma prédéfini des données ni de typage de champs.
 
 ## LES DONNEES
 
