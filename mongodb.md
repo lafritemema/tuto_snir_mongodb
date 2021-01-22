@@ -1148,7 +1148,7 @@ db.sales.aggregate([matchStage, sortStage])
 
 \$limit permet de limiter le nombre de documents renvoyé à un nombre choisit.
 
-Ex : Dans la base games, récupérer les documents décrivant les 3 jeu les plus au USA.
+Ex : Dans la base games, récupérer les documents décrivant les 3 jeu les plus vendus au USA.
 Renvoyer uniquement les champs NA_Sales, Name, Platform et Publisher
 
 ```javascript
@@ -1189,6 +1189,38 @@ db.sales.aggregate([projectStage, sortStage, limitStage])
     "NA_Sales" : 26.93
 }
 ```
+* **Stage $skip
+
+Sous le même format que \$limit, le stage $skip permet d'afficher les documents du stage précédent en ignorant les premiers document
+
+Ex : Dans la base games, récupérer le documents décrivant le 3° jeu le plus vendu au USA.
+Renvoyer uniquement les champs NA_Sales, Name, Platform et Publisher
+
+```javascript
+// stage selection des champs
+var projectStage = {$project: {NA_Sales:1, Name:1, Platform:1, Publisher:1}}
+//stage tri descending sur NA_Sales
+var sortStage = {$sort:{NA_Sales:-1}}
+// stage limit pour garder les 3 premier
+var limitStage = {$limit:3}
+//stage $skip pour ignorer les 2 premiers
+var skipStage = {$skip : 2}
+
+db.sales.aggregate([projectStage, sortStage, limitStage, skipStage])
+
+=> Resultat : 
+
+/* 1 */
+{
+    "_id" : ObjectId("6001c3b22f51f740a857fb76"),
+    "Name" : "Duck Hunt",
+    "Platform" : "NES",
+    "Publisher" : "Nintendo",
+    "NA_Sales" : 26.93
+}
+...
+```
+
 
 * **Stage $group**
 
@@ -1341,5 +1373,8 @@ db.sales.aggregate([bucketStage])
     "sumOfSalesEU" : 25.01
 } 
 ```
+### EXERCICES
 
+Un très bon exercices sur les requête MongoDB est disponible à [ce lien](https://www.w3resource.com/mongodb-exercises/#PracticeOnline).
+Serez vous capable d'effectuer au moins les 20 premières questions.
 
