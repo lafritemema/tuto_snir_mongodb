@@ -74,7 +74,7 @@ Sinon MongoDB est livré avec des API pour s'interfacer avec les principaux lang
 
 ### MES PREMIERES REQUETES DANS ROBO3T / SHELL MONGO 
 
-#### Afficher/Selectionner les databases**
+#### AFFICHER/SELECTIONNER LES DATABASE
 
 Via le shell l'affichage et la selection des databases se fait via les commandes :
 * **affichage des databases** : `show dbs`
@@ -84,14 +84,14 @@ Robo3T permet de selectionner la database et la collection voulue sur le serveur
 
 > La commande `use` peut prendre en parametre un database non-existante, elle sera créé automatiquement lors de la première insertion dans sa première collection.
 
-#### AFFICHER LES COLLECTIONS
+#### AFFICHER LES COLLECTIONS
 
 Après selection d'une database, on peut visualiser ses collections via la commande : `show collections`
 
 > Bien sur la commande n'affiche rien si la database est inexistante.
 
 
-#### INSERER UN DOCUMENT
+#### INSERER UN DOCUMENT
 
 Pour inserer un nouveau document dans la collection on utilise les fonction :
 * insertOne() => insertion d'un document dans la collection
@@ -176,7 +176,7 @@ db.alliance.findOne()
 }
 ```
 
-#### CHOIX DES CHAMPS A AFFICHER
+#### CHOIX DES CHAMPS A AFFICHER
 
 Les fonction find() et findOne() prennent un premier paramêtre pour filtre les documents renvoyés.
 Il peuvent également prendre un deuxième paramêtre qui va nous permettre  de choisir les champs que l'on désire afficher sous la forme d'un objet.
@@ -207,7 +207,7 @@ db.alliance.find({}, {fname:1, lname:1, _id:0})
 }
 ```
 
-#### COMPTER LES ELEMENT ENVOYES
+#### COMPTER LES ELEMENT ENVOYES
 
 Pour compter les élément envoyé, je peux utiliser :
 * la methode count() (ou length())sur le résultat de la fonction find()
@@ -240,11 +240,11 @@ db.alliance.distinct("job")
 
 ```
 
-### CHARGER DES DONNEES STRUCTUREE DANS MONGODB
+### CHARGER DES DONNEES STRUCTUREE DANS MONGODB
 
 Dans les outils intégré à l'environnement MongoDB, la commande ***mongoimport*** permet d'intégrer un fichier de données structurées (format CSV, TSV ou JSON) dans une collections.
 
-#### CHARGER UN FICHIER JSON
+#### CHARGER UN FICHIER JSON
 
 **Commande :**
 
@@ -259,7 +259,7 @@ mongoimport --db new_york --collection restaurants --type JSON --file restaurant
 * --file => fichier contenant les données 
 * --drop => suppression de la collection si elle est déjà existante
 
-#### CHARGER UN FICHIER CSV
+#### CHARGER UN FICHIER CSV
 
 **Commande :**
 
@@ -497,7 +497,7 @@ db.organismes.find(query)
 => Resultat: ...//143 elements
 ``` 
 
-##### LES OPERATEURS LOGIQUES
+##### LES OPERATEURS LOGIQUES
 
 Les operateurs logiques permettent de chainer les conditions pour filtrer encore plus finement le résultat. 
 
@@ -829,7 +829,7 @@ Cette serie d'opérateur spéialisé pour traiter des données de géolocalisati
 
 Ex plus loin dans la partie pipeline \$match.
 
-#### LES PIPELINE D'AGGREGATION
+#### LES PIPELINE D'AGGREGATION
 
 Les pipeline d'aggregation sont un puissant framework de MongoDB permettant d'appliquer une série de transformations sur les documents entrant sous la forme d'opérations (de stage) successivent.
 
@@ -1373,7 +1373,7 @@ db.sales.aggregate([bucketStage])
     "sumOfSalesEU" : 25.01
 } 
 ```
-### EXERCICES
+### EXERCICES
 
 Un très bon exercices sur les requête MongoDB est disponible à [ce lien](https://www.w3resource.com/mongodb-exercises/#PracticeOnline).
 Serez vous capable d'effectuer au moins les 20 premières questions.
