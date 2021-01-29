@@ -178,8 +178,8 @@ db.alliance.findOne()
 
 #### CHOIX DES CHAMPS A AFFICHER
 
-Les fonction find() et findOne() prennent un premier paramêtre pour filtre les documents renvoyés.
-Il peuvent également prendre un deuxième paramêtre qui va nous permettre  de choisir les champs que l'on désire afficher sous la forme d'un objet.
+Les fonction find() et findOne() prennent un premier paramêtre pour filtre les documents renvoyés : **le paramêtre de requête**
+Il peuvent également prendre un deuxième paramêtre : **le paramêtre de projection**; qui va nous permettre  de choisir les champs que l'on désire afficher sous la forme d'un objet.
 
 ```javascript
 //find avec la requete en premier parametre (ici vide)
@@ -210,10 +210,11 @@ db.alliance.find({}, {fname:1, lname:1, _id:0})
 #### COMPTER LES ELEMENT ENVOYES
 
 Pour compter les élément envoyé, je peux utiliser :
-* la methode count() (ou length())sur le résultat de la fonction find()
+* la methode count() (ou length()) sur le résultat de la fonction find()
 * la methode count() de la collection qui prend en parametre une requete pour filtrer les éléments renvoyé à l'aide des opérateurs décris plus bas
 
 ```javascript
+//fonction de curseur count()
 db.alliance.find().count()
 //ou
 db.alliance.find().length()
@@ -289,7 +290,6 @@ Comme vu précedement, les fonctions find() et findOne() permettent de récupér
 En intégrant le bon object en parametre on peut filtrer la recherche pour ne récupérer que le/les documents qui nous interresse(nt).
 
 #### FILTRE PAR CHAMPS
-
 
 Pour filtrer les documents par valeur de champs on défini un objet sous le format suivant :
 `{'<champs_1>':'valeur', '<champs_2>':'valeur' ...}`
@@ -680,7 +680,9 @@ Ex: Récupérer le document décrivant l'organisme référent pour "la Dominique
 var query = {$or:[
                 {iso2:'DM'},
                 {pays_sup:{
-                    $elemMatch:{$eq:'DM'}
+                    $elemMatch:{
+                        iso2:{$eq:'DM'}
+                        }
                     }   
                 }
               ]
@@ -718,14 +720,96 @@ var query = {$or:[
 db.organismes.find(query)
 ```
 
-> Pour les tableau contenant des valeur numérique, les opérateur de comparaison peuvent être utilisés.
-> Les [opérateur de projection](https://docs.mongodb.com/manual/reference/operator/projection/) permettent de faire un filtre suplémentaire sur les valeur retournée dans les tableau.
+> Pour les tableau contenant des valeur numérique, les opérateur de comparaison peuvent être utilisés.  
+
+Des [opérateur de projection](https://docs.mongodb.com/manual/reference/operator/projection/) spécifiques permettent de faire une selection supplémentaire sur les valeurs du tableau retournées.  
+
+###### Operateur projection $slice
+
+L'opérateur de projection [$slice](https://docs.mongodb.com/manual/reference/operator/projection/slice/) permet de selectionner une valeur du tableau par index.
+
+Il peut prendre comme valeur un nombre (le nombre de valeurs à retourner à partir de l'index 0) ou un tableau avec 2 valeurs numériques (index de départ, nombre d'éléments à partir de l'index)
+
+Ex : Sur l'exemple précédent, sélectionner uniquement le premier index dans le tableau, ainsi que le nom, la ville et le pays de l'organisme
+
+```javascript
+var query = {$or:[
+                {iso2:'DM'},
+                {pays_sup:{
+                    $elemMatch:{$eq:'DM'}
+                    }   
+                }
+              ]
+            }
+
+// je selectionne le premier item de pays_sup, le nom, la ville, et le pays de chaque document 
+
+
+var projector = {
+    pays_sup:{$slice:1},
+    nom:1,
+    ville:1,
+    pays:1
+}
+
+db.organismes.find(query, projector)
+
+=> Resultat : 
+{
+    "_id" : ObjectId("600ae56023ad32971de0f28f"),
+    "nom" : "Ambassade de France à Sainte-Lucie",
+    "ville" : "b'CASTRIES'",
+    "pays" : "b'SAINTE-LUCIE'",
+    "pays_sup" : [ 
+        "AG"
+    ]
+}
+```
+> Pour info : je peux utiliser des valeur négative pour récupérer les derniers éléments : \$slice:-3 ou \$slice: [-3, 3]. 
+
+###### Opérateur projection $elemMatch
+
+L'opérateur de projection [$elemMatch](https://docs.mongodb.com/manual/reference/operator/projection/elemMatch) permet de sélectionner un/des elements en fonction de leur valeur.
+
+Ex : Sur l'exemple précédent, retourner seulement les pays_sup avec une valeur "DM".
+
+```javascript
+var query = {$or:[
+                {iso2:'DM'},
+                {pays_sup:{
+                    $elemMatch:{$eq:'DM'}
+                    }   
+                }
+              ]
+            }
+//projector pour renvoyer uniquement la valeur DM du tableau
+var projector = {
+    pays_sup:{$elemMatch:{$eq:'DM'}},
+    nom:1,
+    ville:1,
+    pays:1
+}
+
+db.organismes.find(query, projector)
+
+=> Resultat:
+/* 1 */
+{
+    "_id" : ObjectId("600ae56023ad32971de0f28f"),
+    "nom" : "Ambassade de France à Sainte-Lucie",
+    "ville" : "b'CASTRIES'",
+    "pays" : "b'SAINTE-LUCIE'",
+    "pays_sup" : [ 
+        "DM"
+    ]
+}
+```
 
 ##### LES OPERATEURS D'EVALUATIONS
 
 * **Operateur $expr**
 
-Dans son utilisation la plus basique, $expr permet de filtrer les documents en comparant 2 champs entre eux.
+Dans son utilisation la plus basique, \$expr permet de filtrer les documents en comparant 2 champs entre eux.
 
 > Attention : on change de DB pour passer sur la DB "games".
 
@@ -743,7 +827,7 @@ db.sales.find(query)
 ```
 > Dans l'exemple ci-dessus on voit que les références au champ sont représenté par le nom du champs précédé du caractère $
 
-$expr peut également servir a comparer un champs avec des conditions plus complexe définie avec des opérateurs d'agregation ($add, $multiply ...)
+\$expr peut également servir a comparer un champs avec des conditions plus complexe définie avec des opérateurs d'agregation ($add, $multiply ...)
 
 Ex : Récupérer les documents décrivant les jeux vidéo dont la vente an Amérique du Nord dépasse celle de l'Europe et le Japon réunie. 
 
@@ -761,7 +845,7 @@ db.sales.find(query)
 
 * **Operateur $regex**
   
-$regex permet de faire une recherche textuelle sur un champs en utilisant les expressions régulières.
+\$regex permet de faire une recherche textuelle sur un champs en utilisant les expressions régulières.
 
 $regex est associés à l'opérateur $option qui contient les options liés au expression régulières :
 * i	(case insensitive) => ignore la casse du texte.
@@ -781,7 +865,7 @@ db.sales.find(query)
 
 * **Operateur $text**
 
-$text permet de faire une recherche de mots clef dans un ou plusieurs champs de notre collection.
+\$text permet de faire une recherche de mots clef dans un ou plusieurs champs de notre collection.
 Seul contrainte, il faut dabord que ces champs ai été déclaré dans la liste des _Indexes_ de la collection sous le type _text_.
 
 Pour déclarer des index :
@@ -798,7 +882,7 @@ db.sales.createIndex(
 )
 ```
 
-Après cette étape il suffit de déclarer un opérateur $search dans $text pour filter les documents
+Après cette étape il suffit de déclarer un opérateur $search dans $text pour filter les documents.
 
 Ex : Récupérer les documents contenant _Mario_ et/ou _Kart_ dans un des champs indexé de la collection.
 
@@ -827,7 +911,138 @@ Les [opérateurs de géolocalisation](https://docs.mongodb.com/manual/reference/
 
 Cette serie d'opérateur spéialisé pour traiter des données de géolocalisation.
 
-Ex plus loin dans la partie pipeline \$match.
+Ex:  plus loin dans la partie pipeline \$match.
+
+
+#### LES FONCTIONS DE CURSOR
+
+Comme décris dans la documentation de MongoDB la methode de collection [find()](https://docs.mongodb.com/manual/reference/method/db.collection.find/) renvoi un objet [Cursor](https://docs.mongodb.com/manual/reference/method/js-cursor) représentant le résultat de la requête.
+
+Cette objet comporte certaines fonctions permettant de manipuler le résultat renvoyé par la requête.
+
+##### FONCTION COUNT/SIZE
+
+Renvoi la taille du curseur (le nombre de documents renvoyé).
+
+###### >> FONCTION SORT
+
+La fonction sort() permet de trier les documents en fonction des conditions mises en paramêtre.
+
+Ces condition sont sous la forme `{<champs>:1}` pour un tri croissant sur le champs ou `{<champs>:-1}` pour un tri décroissant.
+
+Ex: Recupérer les documents décrivant les jeux les plus vendus dans l'année 2006 dans l'ordre décroissant.
+
+```javascript
+var query = {Year:2006}
+//projector pour selectionner les champs
+var projector = {_id:0, Name:1, Genre:1, Global_Sales:1}
+//parametre sort sur Global_Sales en décroissant
+var sort = {Global_Sales:-1}
+
+db.sales
+    .find(query, projector)
+    .sort(sort)
+
+Resultat=>
+/* 1 */
+{
+    "Name" : "Wii Sports",
+    "Genre" : "Sports",
+    "Global_Sales" : 82.74
+}
+
+/* 2 */
+{
+    "Name" : "New Super Mario Bros.",
+    "Genre" : "Platform",
+    "Global_Sales" : 30.01
+}
+...
+```
+
+###### >> FONCTION LIMIT
+
+La fonction limit() permet de tronquer le résultat et de ne renvoyer que les premiers éléments suivant le paramètre donné.
+
+Ex: Recupérer les documents décrivant les 5 jeux les plus vendus dans l'année 2006.
+
+```javascript
+var query = {Year:2006}
+//projector pour selectionner les champs
+var projector = {_id:0, Name:1, Genre:1, Global_Sales:1}
+//parametre sort sur Global_Sales en décroissant
+var sort = {Global_Sales:-1}
+
+db.sales
+    .find(query, projector)
+    .sort(sort)
+    .limit(3)
+
+Resultat=>
+/* 1 */
+{
+    "Name" : "Wii Sports",
+    "Genre" : "Sports",
+    "Global_Sales" : 82.74
+}
+
+/* 2 */
+{
+    "Name" : "New Super Mario Bros.",
+    "Genre" : "Platform",
+    "Global_Sales" : 30.01
+}
+
+/* 3 */
+{
+    "Name" : "Wii Play",
+    "Genre" : "Misc",
+    "Global_Sales" : 29.02
+}
+```
+
+###### >> FONCTION SKIP
+
+La fonction skip() permet d'éjecter les premiers résultat en fonction du paramêtre donné.
+
+Ex: Recupérer les documents décrivant les 3 jeux **après** les 3 plus vendus dans l'année 2006.
+
+```javascript
+var query = {Year:2006}
+//projector pour selectionner les champs
+var projector = {_id:0, Name:1, Genre:1, Global_Sales:1}
+//parametre sort sur Global_Sales en décroissant
+var sort = {Global_Sales:-1}
+
+db.sales
+    .find(query, projector)
+    .sort(sort)
+    .limit(3)
+    .skip(3)
+
+Resultat=>
+
+* 1 */
+{
+    "Name" : "Pokemon Diamond/Pokemon Pearl",
+    "Genre" : "Role-Playing",
+    "Global_Sales" : 18.36
+}
+
+/* 2 */
+{
+    "Name" : "The Legend of Zelda: Twilight Princess",
+    "Genre" : "Action",
+    "Global_Sales" : 7.31
+}
+
+/* 3 */
+{
+    "Name" : "Gears of War",
+    "Genre" : "Shooter",
+    "Global_Sales" : 6.11
+}
+```
 
 #### LES PIPELINE D'AGGREGATION
 
@@ -841,7 +1056,7 @@ Les operateurs de stage représentent les étapes de processing appliqués sur l
 
 * **Stage $addFields**
 
-$addField permet de créer des champs supplémentaires dans les documents renvoyé.
+\$addField permet de créer des champs supplémentaires dans les documents renvoyé.
 On peut remplir ce nouveau champs avec une valeur ou en utilisant les autres champs du document (processing avec des opérateurs d'aggretation)
 
 Ex : Dans la database meae creation d'un nouveau champs position qui est une combinaison de la latitude et la longitude
@@ -935,7 +1150,6 @@ var project_stage = {$project:
                       };
 
 db.organismes.aggregate([project_stage])
-
 
 => Resultat :
 /* 1 */
@@ -1189,7 +1403,7 @@ db.sales.aggregate([projectStage, sortStage, limitStage])
     "NA_Sales" : 26.93
 }
 ```
-* **Stage $skip
+* **Stage $skip**
 
 Sous le même format que \$limit, le stage $skip permet d'afficher les documents du stage précédent en ignorant les premiers document
 
@@ -1221,6 +1435,25 @@ db.sales.aggregate([projectStage, sortStage, limitStage, skipStage])
 ...
 ```
 
+* **Stage $sample**
+
+\$sample permet de récupérer un échantillon de documents parmis l'ensemble du résultat renvoyé par la requête.
+
+Ex : Dans la base game, récupérer 5 documents décrivant des jeux vidéo sortis en 2010.
+
+```javascript
+
+var projectStage = {$project: {NA_Sales:1, Name:1, Platform:1, Publisher:1}}
+
+var matchStage = {$match:{Year:2010}}
+
+var sampleStage = {$sample:{size:5}} 
+
+db.sales.aggregate([matchStage, projectStage, sampleStage])
+
+=> Resultat: //5 elements
+...
+```
 
 * **Stage $group**
 
@@ -1375,6 +1608,80 @@ db.sales.aggregate([bucketStage])
 ```
 ### EXERCICES
 
-Un très bon exercices sur les requête MongoDB est disponible à [ce lien](https://www.w3resource.com/mongodb-exercises/#PracticeOnline).
-Serez vous capable d'effectuer au moins les 20 premières questions.
+Un petit exercice sur les requête MongoDB est disponible sur [ce lien](https://www.w3resource.com/mongodb-exercises/#PracticeOnline).
+
+#### AVANT DE SE LANCER
+
+##### FORMAT DU DOCUMENT
+
+Voici le format d'un document décrivant un restaurant :
+
+```json
+/* 1 */
+{
+    "_id" : ObjectId("60070049c063695401760cca"),
+    "address" : {
+        "building" : "469",
+        "coord" : {
+            "type" : "Point",
+            "coordinates" : [ 
+                -73.961704, 
+                40.662942
+            ]
+        },
+        "street" : "Flatbush Avenue",
+        "zipcode" : "11225"
+    },
+    "borough" : "Brooklyn",
+    "cuisine" : "Hamburgers",
+    "grades" : [ 
+        {
+            "date" : ISODate("2014-12-30T00:00:00.000Z"),
+            "grade" : "A",
+            "score" : 8
+        }, 
+        {
+            "date" : ISODate("2014-07-01T00:00:00.000Z"),
+            "grade" : "B",
+            "score" : 23
+        }, 
+        {
+            "date" : ISODate("2013-04-30T00:00:00.000Z"),
+            "grade" : "A",
+            "score" : 12
+        }, 
+        {
+            "date" : ISODate("2012-05-08T00:00:00.000Z"),
+            "grade" : "A",
+            "score" : 12
+        }
+    ],
+    "name" : "Wendy'S",
+    "restaurant_id" : "30112340"
+}
+```
+
+Ce format présente des arborescences d'objets dans notre document.
+Pour accéder à un object pour une comparaison ou une projection il suffit de chainer les champs comme on le fait en Javascript : `"para.subpara.subsubpara":valeur` (attention : le chainage doit être délimité par des ")
+
+Ex : Je veux récupérer les documents décrvant les restaurant avec un zipcode 11225
+
+```javascript
+var query = {"address.zipcode":"11225"}
+db.restaurants.find(query)
+```
+##### TYPER LES VALEURS
+
+Pour filter nos documents ils est parfos necessaire de comparer nos champs avec un paramêtre du même type que la valeur du champs (ex pour les date en ISODate).
+Pour identifier les types disponibles dans le shell, référez vous à la [Documentation](https://docs.mongodb.com/manual/core/shell-types/).
+
+##### LA DOCUMENTATION 
+
+Les éléments donné dans ce tutoriels sont suffisant pour cet exercice mais ne décrivent qu'une infome partie des éléments disponibles pour effectuer les requêtes.
+Pour plus d'information n'hésitez pas à parcourir la [documentation](https://docs.mongodb.com/manual/reference) 
+
+
+
+
+
 
