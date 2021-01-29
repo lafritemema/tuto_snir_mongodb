@@ -680,9 +680,7 @@ Ex: Récupérer le document décrivant l'organisme référent pour "la Dominique
 var query = {$or:[
                 {iso2:'DM'},
                 {pays_sup:{
-                    $elemMatch:{
-                        iso2:{$eq:'DM'}
-                        }
+                    $elemMatch:{$eq:'DM'}
                     }   
                 }
               ]
