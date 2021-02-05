@@ -742,11 +742,11 @@ db.characters.findOne({species:'Human'})
 }
 ```
 
-* **Operateur $[<identifier>]**
+* **Operateur $[\<identifier\>]**
 
 Cet opérateur est lié au parametre _arrayFilters_ de l'objet _options_.
 
-Associé à un champs contenant un tableau \$[<identifier>] permet de modifier un/des éléments spécifique en fonction du résultats renvoyé par le tableau _arrayFilters_.
+Associé à un champs contenant un tableau \$[\<identifier\>] permet de modifier un/des éléments spécifique en fonction du résultats renvoyé par le tableau _arrayFilters_.
 
 L'objet passé en valeur de arrayFilters est similaire à ceux utilisés par les methode find()... 
 
