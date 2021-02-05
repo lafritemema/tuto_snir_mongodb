@@ -112,7 +112,7 @@ Ces methodes prennent 2 paramêtres placé dans l'ordre suivant `deleteOne(filte
 * _options_ : contient des options spécifiques pour l'update.  
   2 principales a retenir :
   * **justOne**: <boolean>, supprimer que le premier élément identifié pour la methode remove()
-  * **hint** : Défini si la suppression ne doit s'appliquer que sur un index spécifique pour la méthode deleteOne().
+  * **hint** : <string|Document> Défini si la suppression ne doit s'appliquer que sur un index spécifique pour la méthode deleteOne().
 
 
 Avec un paramêtre de requête vide la méthode deleteOne() supprime le premier document sinon il supprime le premier document renvoyé par le curseur.
@@ -203,45 +203,47 @@ Il est utilisé en complément de notre parametre _update_ pour définir comment
 
 On utilisera 3 clés principales pour notre besoin :
 
-* **upsert**: <boolean>
+* **upsert**: <boolean>  
   Si le curseur renvoyé par _filter_ est vide, defini si un nouveau document décris par _update_ doit être intégré.
   Par défaut à _false_
 
-* **arrayFilters**: [ <filterObject>, ... ]
+* **arrayFilters**: [ <filterObject>, ... ]  
   Pour les updates sur les tableau défini des critère de filtre spécifique supplémentaires.
   Par défaut à _null_
 
-* **hint**: <document|string>
+* **hint**: <document|string>  
   Défini si l'update ne doit s'appliquer que sur un **index** spécifique.
 
-* **multi**: <boolean>
+* **multi**: <boolean>  
   Utilisé par la méthode _update()_ permet de définir si l'update doit s'effectuer sur le premier document renvoyé (multi:false) ou sur l'ensemble des documents renvoyés (multi:true).
 
-#### FILTER
+#### FILTER
 
 Le paramètre _filter_ est sous la même forme que les objets filtre utilisés dans les requête find(), findOne() et findMany()
 
-#### UPDATE
+#### UPDATE
 
-Le parametre _update_ peut prendre la forme d'un objet pour les requètes les plus simple ou d'un pipeline pour les requête plus complèxes.  
+Le parametre _update_ peut prendre la forme d'un objet ou d'un pipeline.  
 Dans les 2 cas on utilise les [Update Operateur](https://docs.mongodb.com/manual/reference/operator/update-field/) pour définir les étapes de mise à jour.
 
-##### LES OPERATEURS DE CHAMPS
+##### LES OPERATEURS DE CHAMPS
 
 * **Operateur \$set**
 
-\$set permet de définir un nouveau champs avec une valeur ou remplacer la valeur d'un champs existant sous le format.
+\$set permet de définir un nouveau champs avec une valeur ou remplacer la valeur d'un champs existant.
 
 Ex: Ajout de 2 nouveaux champs modif et modif_count pour tous les documents
 
 ```javascript
 //je prepare mon parametre update
 var update = {$set:{
+	//creation champs modif_date avec NOW
         "modif_date": new Date(),
+	//creation champs modif_count:1
         "modif_count":1
     }}
 
-//envoi de la requete, filtre vide pour updater ts les doc
+//envoi de la requete, filtre vide pour updater tous les doc
 db.characters.updateMany({}, update)
 
 => Resultat : 
@@ -268,7 +270,7 @@ db.characters.findOne()
 }
 ```
 
-Autre Ex : Integrer des informations supplémentaires sur la planete Tatooine en ramplaçant le champs homeworld existant
+Autre Ex : Integrer des informations supplémentaires sur la planete Tatooine en remplaçant le champs homeworld existant
 
 ```javascript
 
@@ -279,7 +281,7 @@ var tatooine = {'name':"Tatooine",
 
 //preparation du filtre
 var filter = {homeworld:'Tatooine'}
-//preparation du update
+//preparation du update : je remplace la valeur existante par mon objet tatooine
 var update = {$set:{homeworld:tatooine}}
 
 //envoi de la requete
@@ -316,12 +318,11 @@ db.characters.findOne({"homeworld.name":"Tatooine"})
 }
 ```
 
-Tester les connaissances : 
-* remplir les informations concernant _Naboo_ (Infos sur [Wookipedia](https://starwars.fandom.com/fr/wiki/))
+Tester les connaissances : remplir les informations concernant _Naboo_ (Infos sur [Wookipedia](https://starwars.fandom.com/fr/wiki/))
 
 * **Operateur \$unset**
 
-\$unset permet de supprimer des champs de nos documents.
+\$unset permet de supprimer des champs de nos documents en utilisant le format `{$unset:{<champs1>:"", ...}}`.  
 
 Ex: Supprimer le champs gender pour tous les documents décrivant un _Droid_.
 
@@ -400,7 +401,7 @@ db.characters.findOne()
 
 * **Operateur \$inc**
 
-\$inc permet d'incrémenter la valeur d'un champs en fonction de valeur mis en paramêtre.
+\$inc permet d'incrémenter la valeur d'un champs en fonction de valeur mise en paramêtre.
 
 Ex: Modification des Skywalker, j'incrémente le compteur _modif\_count_ je met à jour _last\_modif\_date_
 
@@ -446,7 +447,7 @@ db.characters.find(filter)
 
 * **Operateur \$currentDate**
 
-\$currentDate nous permet d'intégrer un objet Timestamp() ou un objet Date() correspondant à ***NOW*** dans un champs du document.
+\$currentDate nous permet d'intégrer un objet Timestamp() ou un objet Date() correspondant à ***NOW*** dans un champs des documents.
 
 Le choix de l'objet (Timestamp ou Date) est fait au moyen de l'opérateur ***$type*** sous le format :
 
@@ -518,7 +519,7 @@ var updateMin ={
             $min:{score:150}
         }
 
-//Mongo leve un conflit si les paramtre min et max sont appliqué en même temps sur le meme champs
+//Mongo leve un conflit si les parametre min et max sont appliqué en même temps sur le meme champs
 // donc update en 2 fois
 
 db.characters.updateMany({}, updateMax)
@@ -634,7 +635,7 @@ db.characters.findOne({name:"Robot Darth Vader"})
 
 ```
 
-##### LES OPERATEURS DE TABLEAUX
+##### LES OPERATEURS DE TABLEAUX
 
 Les opérateur de tableaux permettent d'appliquer des modifications sur des items précis d'un tableau contenus dans un champs.
 Il permettent également d'ajouter ou de supprimer un items précis.
@@ -1059,7 +1060,7 @@ db.characters.findOne(filter)
 }
 ```
 
-##### UPDATE AVEC PIPELINE
+##### UPDATE AVEC PIPELINE
 
 Le paramètre _update_ des methode updateOne(), updateMany() et update() peuvent également être sous la forme d'un pipeline (liste de stage).
 Dans cette configuration seul les stages suivant sont disponible:
@@ -1138,7 +1139,7 @@ db.characters.findOne(filter)
 }
 ```
 
-### VALEUR DE RETOUR
+### VALEUR DE RETOUR
 
 En cas de succès des fonction xxxxOne() et xxxxMany() (inserOne(), insertMany(), deleteOne()...) renvoie un objet contenant le status de la requête et les _\_id_ des documents inséré.
 
@@ -1218,7 +1219,7 @@ En cas de défaut elle renvoi également un objet WriteResult contenant un objet
 }
 ```
 
-### FIND AND PROCESS
+### FIND AND PROCESS
 
 MongoDB comporte aussi des méthodes de collection permettant de récupérer les éléments actuel avant faire des modification sur la base :
 * [findAndModify](https://docs.mongodb.com/manual/reference/method/db.collection.findAndModify/)
