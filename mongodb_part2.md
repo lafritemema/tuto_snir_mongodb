@@ -1229,3 +1229,900 @@ MongoDB comporte aussi des méthodes de collection permettant de récupérer les
 Le fonctionnement de ces méthodes est similaire au méthode standard décrite plus haut.
 Pour plus d'info, veuillez consulter la documentation.
 
+
+### METHODE DISTINCT
+
+La methode de collection _distinct()_ permet de lister les valeur unique d'un champs passé en premier paramêtre.
+
+On peut intégrer un deuxième paramêtre _query_ à distinct() pour filtrer les documents utilisés lors de l'opération distinct()
+
+Ex : Dans la base sw lister les _species_ présente sur le _homeworld_ _Kamino_
+
+```javascript
+var query = {"homeworld":"Kamino"};
+
+db.characters.distinct("species", query);
+
+=> Resultat:
+/* 1 */
+[
+    "Human",
+    "Kaminoan"
+]
+```
+
+### LES INDEX MONGODB
+
+Au fur et à mesure que les collections grandissent, les temps d'éxecution des requête s'allonge.
+
+Pour récupérer un/des document(s) via un _find_ MongoDB va devoir parcourir l'ensemble de la collection jusqu'à trouver le/les bons éléments.
+C'est un **collectionScan**.
+Si la collection comprend plusieurs dizaine de millier de documents cette requête peut devenir très gourmande en ressources matériel.
+
+Pour remédier à cette situation, le systeme nous donne l'occasion d'ajouter des index MongoDB sur les collections.
+
+Les index sont un copie d'un segment de données au format [B-Tree](https://en.wikipedia.org/wiki/B-tree)
+
+![mongodb index](./media/mongodb-index-table.gif)
+
+MongoDB va pouvoir, via un **indexScan**, identifier plus rapidement et efficacement les documents ciblé par la requête.
+Techniquement il va parcourir **un seul document** (notre index) pour identifier les références aux documents ciblés.
+
+#### CREER UN INDEX
+
+Pour créer un index dans une collection on utilise la méthode de collection _createIndex_.
+
+Il prend en premier paramêtre un objet décrivant le/les champs à indexer et l'ordre de tri pour chacun.
+
+Il peut prendre un deuxième paremètre une liste d'_options_ spécifiques dont celle à retenir:
+* unique <boolean> : pour la creation d'un index unique pour un champs, la collection ne peur contenir 2 fois la même valeur pour le champs.
+* name <string> : nom de l'index.
+* partialFilterExpression <document> : paramêtre _filtre_ pour une selection plus fine des documents indexés.
+* hidden <boolean> : defini si l'index est caché, tant qu'un index est caché, il n'est pas pris en compte par MongoDB. 
+
+Ex: Dans la DB sw, création d'un index sur le champs _species_ en tri croissant.
+Je le nomme species_inc.
+
+```javascript
+db.characters.createIndex({species:1}, {name:"species_inc"})
+
+=> Resultat:
+/* 1 */
+{
+    "createdCollectionAutomatically" : false,
+    "numIndexesBefore" : 1,
+    "numIndexesAfter" : 2,
+    "ok" : 1.0
+}
+```
+
+> Si l'option name n'est pas spécifié, le nom de l'index est défini par mongoDB sous le format `<champs>_<valeur>`, ex ci-dessus : `species_1`
+
+
+#### SIGLE FIELD INDEX
+
+Un sigle field index sert à appliquer un index sur un seul champs de la collection.
+
+Cet index sera automatiquement utilisé par MongoDB pour effectuer un **indexScan** pour toute les requêtes intégrants ce filtre en premier critère de recherche (sauf si l'index est en hidden).
+
+
+Donc l'index `{species:1}` créé ci-dessus sera utilisé pour toutes les requête intégrant un _filter_ sur le champs _species_ comme premier critère de recherche.
+Donc pour les requêtes suivantes :
+
+```javascript
+//mongoDB parcours l'index pour identifier documents décrivant des Human
+db.characters.find({species:"Human"})
+//mongoDB parcours l'index pour identifier les documents décrivant les Human puis parcours les documents identifiés pour récupérer les homeworld:Tatooine.
+db.characters.find({species:"Human", homeworld:"Tatooine"})
+```
+
+Mais mongoDB ne pourra pas effectuer d'**indexScan** pour des requêtes n'intégrant pas le champs (il devra réaliser un **collectionScan**): 
+
+```javascript
+db.characters.find{homeworld:"Tatooine"})
+db.characters.find()
+```
+
+Les méthodes _sort()_ peuvent également utiliser l'index pour de meilleur performances quelque soit le sens defini dans la fonction:
+
+```javascript
+db.characters.find{homeworld:"Tatooine"}).sort({species:-1})
+```
+
+> On peut également définir un index en utilisant les sous champs.
+  Ex : Creation d'un un index descending sur le champs _homeworld_, sous champs _name_
+  `sw.characters.createIndex({homeworld.name:-1})`
+
+#### COMPOUND FIELD INDEX
+
+Un compound field index permet de créer un index intégrant plusieurs champs.
+
+Ex: Sur la DB sw, création d'un index sur les champs _homeworld_ et _species_
+
+```javascript
+db.characters.createIndex({homeworld:-1, species:1})
+
+=> Resultat:
+/* 1 */
+{
+    "createdCollectionAutomatically" : false,
+    "numIndexesBefore" : 2,
+    "numIndexesAfter" : 3,
+    "ok" : 1.0
+}
+``` 
+
+Suite à la création de l'index ci-dessu, les requêtes contenant un _filter_ sous la forme `{homeworld:<valeur>, species:<valeur>}` seront processés en **indexScan** par MongoDB.
+
+Un compound index peut être représenté comme une arborescence d'index.
+Ou chaque étage de l'arborescence est un prefix de l'étage suivant
+
+Ex sur l'index : `{<champs1>:valeur, <champs2>:valeur, <champs3>:valeur}`
+* prefix1 : `{\<champs1\>:valeur}`
+* prefix2 : `{\<champs1\>:valeur, \<champs2\>:valeur}` 
+* index :   `{\<champs1\>:valeur, \<champs2\>:valeur, \<champs3\>:valeur}`
+
+Ce format a un avantage, il permet que les requête contenant un _filter_ sous la forme du compound field index ou d'un de ses prefix puissent être processé en mode indexScan.
+
+En contrepartie, l'ordre des prefix est important.
+Un _filter_ sous la forme `{\<champs2\>:valeur, \<champs3\>:valeur}` ou `{\<champs3\>:valeur, \<champs1\>:valeur}` ne seront pas processé en indxScan (ils seront donc processé en collectionScan).
+
+La methode sort() pourra également profiter des avantages du compound field index (et de ses prefix) tant qu'il respecte les contraites suivante :
+* l'ordre du sort doit correspondre à l'index.
+  index : `{homeworld:-1, species:1}`; sort : `sort({homeworld:-1, species:1})`
+* l'ordre du sort doit être strictement l'inverse de l'index.
+  index : `{homeworld:-1, species:1}`; sort : `sort({homeworld:1, species:-1})`
+
+Donc les fonction requêtes suivantes ne pourront pas être processé en indexScan : `sort({homeworld:1, species:-1})`
+
+#### TEXT INDEX
+
+Les _text index_ sont des index spécifiques qui nous permettent de faire de la recherche de texte lors de nos requêtes.
+
+On les déclare en utilisant la formulation suivante:
+
+```json
+{
+    <champs1>:"text",
+    <champs2>:"text",
+    ....
+}
+```
+
+MongoDB pourra effectuer une recherche de texte dans tous les champs déclaré en type text dans un index.
+
+Ex : Création d'un index de type text sur les champs _name_ et _homeworld_ de la collection _characters.
+
+```javascript
+sw.characters.createIndex(
+    {
+        name:"text",
+        homeworld:"text"
+        }
+)
+=> Resultat:
+
+/* 1 */
+{
+    "createdCollectionAutomatically" : false,
+    "numIndexesBefore" : 1,
+    "numIndexesAfter" : 2,
+    "ok" : 1.0
+}
+
+//requete utilisant le text index
+//recherche de R2 et/ou C-3PO sur les champs name et homeworld
+
+var query = {$text:{$search:"R2 C-3PO"}}
+
+=> Resultat :
+* 1 */
+{
+    "_id" : 1,
+    "name" : "C-3PO",
+    "homeworld" : "Tatooine",
+    "species" : "Droid",
+    "score" : 50.0,
+    "modif_count" : 1.0,
+    "last_modif_date" : ISODate("2021-02-04T13:48:59.147Z"),
+    "grades" : [ 
+        75.0, 
+        80.0, 
+        81.0, 
+        83.0, 
+        72.0, 
+        92.0
+    ]
+}
+
+/* 2 */
+{
+    "_id" : 2,
+    "name" : "R2-D2",
+    "homeworld" : "Naboo",
+    "species" : "Droid",
+    "score" : 50.0,
+    "modif_count" : 1.0,
+    "last_modif_date" : ISODate("2021-02-04T13:48:59.147Z"),
+    "grades" : [ 
+        85.0, 
+        81.0, 
+        92.0, 
+        80.0
+    ]
+}
+```
+
+Pour indexer automatiquement tout les champs de type string on utilise la formulation suivante :
+
+```json
+{
+    "$**":"text
+}
+```
+
+#### MANAGER LES INDEX
+
+##### LISTER LES INDEX
+
+Pour récupérer la liste des index on utilise la méthode de collection _getIndexes()_
+
+Ex : récupérer la liste des index de la collection _characters_ de _sw_
+
+```javascript
+
+db.characters.getIndexes()
+
+=> Resultat
+/* 1 */
+[
+    {
+        "v" : 2,
+        "key" : {
+            "_id" : 1
+        },
+        "name" : "_id_"
+    },
+    {
+        "v" : 2,
+        "key" : {
+            "species" : 1.0
+        },
+        "name" : "species_inc"
+    },
+    {
+        "v" : 2,
+        "key" : {
+            "species" : 1.0,
+            "homeworld" : -1.0
+        },
+        "name" : "species_1_homeworld_-1"
+    }
+]
+```
+
+##### SUPPRIMER LES INDEX
+
+Pour supprimer un index on utilise la méthode de collection _dropIndex()_
+On lui donne le nom de l'index ou l'objet le définissant en paramêtre.
+
+Ex : suppression de l'index `{species:1}` créé plus haut avec le nom species_inc
+
+```javascript
+db.characters.dropIndex("species_inc")
+
+=> Resultat:
+/* 1 */
+{
+    "nIndexesWas" : 3,
+    "ok" : 1.0
+}
+```
+
+Pour supprimer un ou plusieurs index on utilise la methode de collection _dropIndexes()_.
+Elle prend en paramêtre :
+* pour supprimer un index : le nom de l'index ou l'objet le définissant
+* pour supprimer plusieurs index : liste de nom ou liste d'objets
+* pour supprimer tous les index (sauf le _id); pas de paramêtres.
+
+Ex : suppression de tous les index de la collection characters
+
+```javascript
+
+db.characters.dropIndexes()
+
+=> Resultat :
+
+/* 1 */
+{
+    "nIndexesWas" : 2,
+    "msg" : "non-_id indexes dropped for collection",
+    "ok" : 1.0
+}
+```
+
+##### ACTIVER/DESACTIVER UN INDEX
+
+La méthodes hideIndex() permet de desactiver l'index (sans le supprimer).
+Quand un index est desactivé, il n'est plus utilisé par MongoDB.
+La methode unhideIndex() permet de le réactiver.
+
+Ces méthodes prennent le nom de l'index  ou un objet le définissant en paramêtre.
+
+Ex : desactiver l'index species_inc
+`db.characters.hideIndex("species_inc")`
+
+Activer/Desactiver un index permet d'évaluer les écarts de performances lors du processing des requêtes.
+
+##### AFFICHER LA TAILLE DES INDEX
+
+Les index sont très utile mais leur utilisation n'est pas gratuite.
+Ce sont des documents qui liste les références vers le données de collection.
+
+Ces documents ont une taille qui augmente la taille de notre base.
+La méthode _totalIndexSize()_ permet d'afficher la taille des index.
+
+## MANAGER LES COLLECTIONS
+
+### CREATION DE COLLECTION
+
+Comme vu précédement, la premiere insertion d'un document créé la ciblé collection automatiquement.
+Mais on peut égalemnet utiliser la fonction de Database [_createCollection_](https://docs.mongodb.com/manual/reference/method/db.createCollection/index.html)
+
+Cette fonction prend en premier paramêtre le nom de la collection mais permet d'intégrer quelques options spécifique interressantes en deuxième paramêtre comme :
+* capped \<boolean\> : defini si la collection est de type plafonné (collection avec une taille max).
+* size: la taille max de la collection en octet. Dès que la taille est dépassé, les plus anciens documents sont supprimé à chaque nouvelles insertions.
+* max : le nombre de documents max acceptés. Dès que la taille est dépassé, les plus anciens documents sont supprimé à chaque nouvelles insertions. 
+
+Avant ou après création de la collection on peut vérifier sa présence dans la base avec la méthode de collection _exists()_
+
+Ex : Creation d'une collection de type capped nommée _starship_ dans la database _sw_, taille max de la collection 15Mo.
+
+```javascript
+
+var cname = "starship" //nom de la collection
+
+var options = {
+                "capped":true, //taille plafonne
+                "size":15000, //taille max 15M
+             } 
+
+//creation de la collection       
+db.createCollection(cname, options)
+
+=> Resultat :
+
+/* 1 */
+{
+    "ok" : 1.0
+}
+
+//controle starship exists
+db.starship.exists()
+
+=> /* 1 */
+{
+    "name" : "starship",
+    "type" : "collection",
+    "options" : {
+        "capped" : true,
+        "size" : 15104
+    },
+    "info" : {
+        "readOnly" : false,
+        "uuid" : UUID("ea7b7b37-088b-4a71-81a5-ac71c5756a99")
+    },
+    "idIndex" : {
+        "v" : 2,
+        "key" : {
+            "_id" : 1
+        },
+        "name" : "_id_"
+    }
+}
+
+//controle momo exists
+db.momo.exists()
+=> Resultat :
+null
+
+```
+
+> La méthod _createCollection()_ comporte d'autre options pour gérer les validation ou les copie de collection.
+> Pour plus d'info, voir la [doc](https://docs.mongodb.com/manual/reference/method/db.createCollection/index.html)
+
+
+### INFORMATIONS DE COLLECTIONS
+
+La methode de database _getCollectionsNames()_ permet d'afficher la liste des nom de collections.
+
+Ex : afficher le nom des collection de _sw_
+```javascript
+db.getCollectionNames()
+=> Resultat :
+/* 1 */
+[
+    "characters",
+    "starship"
+]
+
+```
+
+La méthode _getCollectionsInfos()_ permet d'obtenir toutes les informations sur les collections.
+Sans paramêtre, cette méthode renvoi toutes les informations de toutes les collections de la database.
+
+```javascript
+
+db.getCollectionInfos()
+
+=> Resultat:
+/* 1 */
+[
+    {
+        "name" : "characters",
+        "type" : "collection",
+        "options" : {},
+        "info" : {
+            "readOnly" : false,
+            "uuid" : UUID("12befc62-ce24-48a8-b198-183ed8eba6ba")
+        },
+        "idIndex" : {
+            "v" : 2,
+            "key" : {
+                "_id" : 1
+            },
+            "name" : "_id_"
+        }
+    },
+    {
+        "name" : "starship",
+        "type" : "collection",
+        "options" : {
+            "capped" : true,
+            "size" : 15104
+        },
+        "info" : {
+            "readOnly" : false,
+            "uuid" : UUID("ea7b7b37-088b-4a71-81a5-ac71c5756a99")
+        },
+        "idIndex" : {
+            "v" : 2,
+            "key" : {
+                "_id" : 1
+            },
+            "name" : "_id_"
+        }
+    }
+]
+```
+
+On peut intégrer à cette fonction un paramêtre de type _filter_ et un paramêtre de type _projection_ pour selectionner les informations qui nous intéressent. 
+
+Ex: Récupérer les options de la collections starship.
+```javascript
+
+db.getCollectionInfos({name:"starship"},{options:1})
+
+=> Resultat :
+
+/* 1 */
+[
+    {
+        "name" : "starship",
+        "type" : "collection"
+    }
+]
+
+
+```
+
+### SUPPRESSION D'UNE COLLECTION
+
+La methode de collection _drop()_ permet de supprimer la collection ciblée.
+
+Ex: suppression de la collection _starship_ de _sw_.
+
+```javascript
+
+db.starship.drop()
+
+=>Resultat :
+true 
+
+```
+
+### SUPPRESSION D'UNE DATABASE
+
+Pour supprimer une database on utilise la méthode de Database _dropDatabase()_
+On peut integrer des option à cette méthode, dont l'option _comment_ 
+Ex : 
+
+## ADMINISTRATION ROLE ET USERS
+
+Le contrôle de l'accès aux fonctions et au contenue d'une base mongoDB est basé sur le système de **rôle**.
+
+Ces rôles s'applique sur une Database (local ou systeme) et peut appliquer un accès jusqu'à un niveau de granularité Collection.
+
+Chaque **rôle** accorde des privilèges bien défini pour effectuer :
+* des actions (read, write ...)
+* du monitoring
+* de l'administration utilisateur (user, roles)
+* de l'administration db (index, duplication, backup, restore)
+...
+
+On **accorde** ensuite ces **rôles** aux **Users** pour définir leurs droit. 
+
+MongoDB fournie une série de [**rôles prédéfini**](https://docs.mongodb.com/manual/reference/built-in-roles) qui fournissent les différents niveaux d'accès généralement nécessaires dans un système de base de données.
+Mais il donne aussi l'occasion à l'administrateur de **créer ses propres rôles**.
+
+### ACTIVER/DESACTIVER L'AUTHENTIFICATION
+
+Tel que l'on a utilisé jusqu'ici, la base MongoDB a sa fonction d'authentification desactivée.
+
+Pour l'activer on doit relancer le service MongoDB avec la configuration authentification activée. 
+
+La configuration de mongoDB est defini:
+* dans le fichier _mongod.cfg_ dans le dossier d'installation mongoDB sur windows
+  ajouter (ou decommenter) la ligne :
+  ```bash
+  `security:
+        authorization:enabled
+  ```
+
+* dans le fichier _/etc/mongodb.conf_ sur linux
+  ajouter(ou décommenter) la ligne:
+  `auth=true`
+
+Après le redemarrage du service MongoDB, la connexion nécessite une authentification avec un user et un mot de passe.
+
+### CREER LES PREMIERS USER
+
+Sans droit sur la base, on ne peut rien faire !!  
+La fonction d'authentification ne peut donc être activé qu'après avoir au moins créé au moins un premier utilisateur avec un niveau d'accès suffisant pour creer des Database, des Users, des collections, attribuer des droits ...  
+
+On va donc créer 2 utisateurs en leur donnant les droit suffisant pour effectuer ces actions :
+* un SuperUtilisateur : qui aura tous pouvoirs sur la base
+* un Administrateur : qui pourra administrer la base
+
+#### CREER UN USER
+
+Pour créér un User on utilise la méthode de Database _createUser()_.
+
+Elle prend en paramêtre un objet composé (entre autre) des champs suivant):
+* user \<string\> : nom du user
+* pwd \<string|passwordPrompt()\> : string en clair ou utilisation de la fonction passwordPrompt()
+* customData \<object\> : pour intégrer des info supplémentaires custo
+* roles \<Array\> : liste des rôles format string `<role>`ou objet `{role:<role>, db:<database>`.
+* authenticationRestrictions \<Array\>: restriction d'accès de connexion sur les adresse IP.
+
+> D'autre option sont disponible, pour plus d'info, voir la [doc](https://docs.mongodb.com/manual/reference/method/db.createUser/index.html#db-createuser-authenticationrestrictions)
+
+Ex : Creation d'un user avec un role _read_ sur une base _temp_
+
+```javascript
+
+//switch sur la database
+use temp
+
+//definition du user
+var tempRUser = {
+    "user": "tempRUser", //nom
+    "pwd": "temp123", //passwd
+    "customData": { "contact":"john Doe", //info suplementaires
+                    "email" : "jd@gmail.com"},
+    "roles": [ { "role": "read", "db" : "temp" }] // role read sur la db temp.
+}
+//creation du user
+db.createUser(tempUser)
+```
+
+#### LE SUPERUTILISATEUR
+
+Pour creer le SuperUtilisateur, on va utiliser un role pré-intégré à MongoDB : le role [**root**](https://docs.mongodb.com/manual/reference/built-in-roles/#superuser-roles).
+
+Il combine les rôle suivant :
+* readWriteAnyDatabase => lecture/ecriture sur toute les DB
+* dbAdminAnyDatabase => creation / suppression sur toutes les DB 
+* userAdminAnyDatabase => attribution des droit sur toutes les DB
+* clusterAdmin => administration des cluster
+* restore => restauration de DB
+* backup => sauvegarde de DB
+
+Donc ce role, attribué à un utilisateur, lui donne (presque) tous les droits sur la base.
+
+Ex : Creation d'un SuperUtilisateur nommé root.  
+     je ne lui accorde un accès qu'en localhost.
+
+```javascript
+//switch sur admin
+use admin
+
+//definition du SuperUser
+var root = {
+    "user": "root", //nom
+    "pwd": "root123", //passwd
+    "customData": { "contact":"florent dubois", //info suplementaires
+                    "email" : "lafritemema@gmail.com"},
+    "roles": [ { "role": "root", "db" : "admin" }], // attribution des droit root
+    "authenticationRestrictions":[
+                    {"clientSource":["127.0.0.0/8"]} //restriction d'acces en localhost
+             ]
+}
+
+db.createUser(root)
+
+=> Resultat :
+
+Successfully added user: {
+	"user" : "root",
+	"customData" : {
+		"contact" : "florent dubois",
+		"email" : "lafritemema@gmail.com"
+	},
+	"roles" : [
+		{
+			"role" : "root",
+			"db" : "admin"
+		}
+	],
+	"authenticationRestrictions" : [
+		{
+			"clientSource" : [
+				"127.0.0.0/8"
+			]
+		}
+	]
+}
+
+```
+
+On a créé un utilisateur qui à toute puissance sur la base mais dans un soucis de sécurité (on est pas à l'abris d'un accident) on ne l'utilise qu'en dernier recours.
+On préfère definir des utilisateurs avec des droit plus restreints pour gérer l'administration régulière de la base (ségrégation des droit).
+
+#### L'ADMINISTRATEUR
+
+l'administrateur de la base doit :
+* créer/supprimer des databases
+* lire/écrire des données
+* administrer les droits et les utilisateurs
+
+Pour chacune de ces activité une MongoDB à un rôle préintégré:
+* readWriteAnyDatabase => lecture/ecriture sur toute les DB
+* dbAdminAnyDatabase => creation / suppression sur toutes les DB 
+* userAdminAnyDatabase => attribution des droit sur toutes les DB
+
+Ex: Création d'un administrateur
+
+```javascript
+//switch sur db admin
+use admin
+
+// definition du User
+var administrator = {
+    "user": "administrator", //nom
+    "pwd": "admin123", //passwd
+    "customData": { "contact":"florent dubois", //info suplementaires
+                    "email" : "lafritemema@gmail.com"},
+    "roles": [ "readWriteAnyDatabase", "dbAdminAnyDatabase", "userAdminAnyDatabase"]
+}
+//creation du User
+db.createUser(administrator)
+
+=> Resultat :
+
+Successfully added user: {
+	"user" : "administrator",
+	"customData" : {
+		"contact" : "florent dubois",
+		"email" : "lafritemema@gmail.com"
+	},
+	"roles" : [
+		"readWriteAnyDatabase",
+		"dbAdminAnyDatabase",
+		"userAdminAnyDatabase"
+	]
+}
+
+```
+
+> Maintenant que l'on a des users avec les droit necéssaires on va pouvoir réactiver l'authentification.
+> Se référer à la partie ACTIVER/DESACTIVER L'AUTHENTIFICATION.
+
+#### CONNEXION AVEC AUTHENTIFICATION
+
+Pour se connecter avec authetification sur le terminal on utilise toujours la commande `mongo` à laquelle on intègre les options `-u` (user) et `-p` (password).
+
+Ex : connexion avec le compte _administrator sur la base admin  
+
+`mongo -u administrator -p admin123 --authenticationDatabase admin`
+
+Il n'est pas conseillé d'intégrer le password directement dans le terminal (visible par la commande history sur linux)
+On prefère donc utiliser `-p` sans paramêtre pour faire apparaitre le passwordPrompt nous permettant de rentrer le password
+
+```bash
+mongo --authenticationDatabase admin -u administrator -p
+
+MongoDB shell version v4.4.3
+Enter password:
+
+```
+
+On peut également se connecter après accès à la base :
+
+```bash
+mongo
+> use admin
+> db.auth("administrator","admin123")
+> ....
+> db.logout()
+```
+Sur **robo3t** on peut créer un nouveau profil _administrator_ dans l'interface avec des paramêtre d'authentification.
+
+![robo3t_auth](media/robo3t_auth.png)
+
+> pour la suite du tutoriel on se connecte en administrator
+
+#### LE ROLE DBOWNER
+
+Un utilisateur avec un role [dbOwner](https://docs.mongodb.com/manual/reference/built-in-roles/#dbOwner) à les droits suivants sur la Database dont il est propriétaire :
+* administration de la DataBase (creation/suppression collection, index ...).
+* administration des utilisateurs (ajout, suppression, droit ...)
+* suppression de la database
+
+Lors de la création d'une DataBase, on va donc pouvoir créér un utilisateur avec le rôle dbOwner qui va pouvoir administrer la Database (et seulement celle là)
+
+Ex: Creation d'un User avec les droit sur la database _sw_ (elle n'est pas encore créé mais ce n'est pas grave)
+
+```javascript
+use sw
+
+var swOwner = {
+    "user": "swOwner", //nom
+    "pwd": "swOwner123", //passwd
+    "roles": [ {"role":"dbOwner", "db":"sw"}]// role dbOwner sur sw
+}
+
+db.createUser(swOwner)
+
+=> Resultat:
+
+Successfully added user: {
+	"user" : "swOwner",
+	"roles" : [
+		{
+			"role" : "dbOwner",
+			"db" : "sw"
+		}
+	]
+}
+```
+
+Ce nouveau user _swOwner_ a donc les droits pour intégrer du contenu dans la Database _sw_.
+Par exemple avec un mongoimport :
+
+Ex mongoimport sur la Database _sw_ les droit dbOwner
+
+```bash
+# import du fichier json dans la database sw
+# creation d'une collection characters.
+# log avec user : swOwner; password : swOwner123
+
+mongoimport --db sw --collection characters --file sw_characters.json -u swOwner -p swOwner123 --jsonArray
+
+2021-02-12T11:37:18.628+0100	connected to: mongodb://localhost/
+2021-02-12T11:37:18.691+0100	87 document(s) imported successfully. 0 document(s) failed to import.
+```
+
+Mais il n'a **aucun droit** pour intégrer du contenu **dans une autre base** :
+
+```bash 
+# meme manip pour intégrer du contenu dans la base momo
+mongoimport --db momo --collection characters --file sw_characters.json -u swOwner -p swOwner123 --jsonArray
+
+
+2021-02-12T11:41:29.836+0100	error connecting to host: could not connect to server: connection() : auth error: sasl conversation error: unable to authenticate using mechanism "SCRAM-SHA-1": (AuthenticationFailed) Authentication failed.
+```
+
+Avec le rôle dbOwner l'utilisateur peut également administrer les droits sur la Database et les collections.
+
+> Pour la suite de ce tutoriel, on se connecte en ***swOwner***.
+> Sur robo3t après connexion seule la Database _sw_ et ses collections sont visible.
+
+
+#### LES ROLES UTILISATEURS
+
+Les _user roles_ sont les rôle basiques donnés pour une exploitation standard d'une Database, à savoir:
+* read => lecture seule de la Database :
+  * afficher les collections, les index
+  * effectuer un find sur les collections
+* readWrite => lecture et ecriture de la Database:
+  * créer/supprimer les collections, les index ...
+  * effectuer toutes les actions sur les collection (find, update, insert, delete)
+
+Ex: Sur la Database sw création :
+* d'un user avec le role _read_
+* d'un user avec le role _readWrite_
+
+```javascript 
+use sw
+// definition user role readWrite
+var swRWriter = {
+    "user": "swRWriter", //nom
+    "pwd": "swrw123", //passwd
+    "roles": [ {"role":"readWrite", "db":"sw"}]// role reader et writer sur sw collection starships
+}
+// definition user role read
+var swReader = {
+    "user": "swReader", //nom
+    "pwd": "swr123", //passwd
+    "roles": [ {"role":"read", "db":"sw"}]// role reader sur sw collection starships
+}
+
+db.createUser(swRWriter)
+db.createUser(swReader)
+
+```
+
+Donc login avec swReader
+
+```bash
+mongo
+> use sw
+> db.auth("swReader", "swr123")
+> show collections
+characters
+starships
+> db.characters.findOne() #cmd find fonctionne
+{
+	"_id" : 3,
+	"name" : "Darth Vader",
+	"gender" : "male",
+	"homeworld" : "Tatooine",
+	"species" : "Human",
+	"score" : 197
+}
+> db.characters.insertOne({'test':1}) #cmd insert leve une erreur de type Unauthorized
+WriteCommandError({
+	...
+	"codeName" : "Unauthorized"
+})
+```
+Et login avec swReader
+
+```bash
+mongo
+> use sw
+> db.auth("swRWriter", "swrw123")
+> show collections
+characters
+starships
+> db.characters.findOne() #cmd find fonctionne
+{
+	"_id" : 3,
+	"name" : "Darth Vader",
+	"gender" : "male",
+	"homeworld" : "Tatooine",
+	"species" : "Human",
+	"score" : 197
+}
+> db.starships.drop() # cmd drop fonctionne
+true
+> db.characters.insertOne({'test':1}) #cmd insert fonctionne
+{
+	"acknowledged" : true,
+	"insertedId" : ObjectId("602672105b1bba8ed9c49fae")
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
