@@ -1252,7 +1252,7 @@ db.characters.distinct("species", query);
 ]
 ```
 
-### LES INDEX MONGODB
+### LES INDEX MONGODB
 
 Au fur et à mesure que les collections grandissent, les temps d'éxecution des requête s'allonge.
 
@@ -1464,7 +1464,7 @@ Pour indexer automatiquement tout les champs de type string on utilise la formul
 
 #### MANAGER LES INDEX
 
-##### LISTER LES INDEX
+##### LISTER LES INDEX
 
 Pour récupérer la liste des index on utilise la méthode de collection _getIndexes()_
 
@@ -1502,7 +1502,7 @@ db.characters.getIndexes()
 ]
 ```
 
-##### SUPPRIMER LES INDEX
+##### SUPPRIMER LES INDEX
 
 Pour supprimer un index on utilise la méthode de collection _dropIndex()_
 On lui donne le nom de l'index ou l'objet le définissant en paramêtre.
@@ -1542,7 +1542,7 @@ db.characters.dropIndexes()
 }
 ```
 
-##### ACTIVER/DESACTIVER UN INDEX
+##### ACTIVER/DESACTIVER UN INDEX
 
 La méthodes hideIndex() permet de desactiver l'index (sans le supprimer).
 Quand un index est desactivé, il n'est plus utilisé par MongoDB.
@@ -1555,7 +1555,7 @@ Ex : desactiver l'index species_inc
 
 Activer/Desactiver un index permet d'évaluer les écarts de performances lors du processing des requêtes.
 
-##### AFFICHER LA TAILLE DES INDEX
+##### AFFICHER LA TAILLE DES INDEX
 
 Les index sont très utile mais leur utilisation n'est pas gratuite.
 Ce sont des documents qui liste les références vers le données de collection.
@@ -1565,7 +1565,7 @@ La méthode _totalIndexSize()_ permet d'afficher la taille des index.
 
 ## MANAGER LES COLLECTIONS
 
-### CREATION DE COLLECTION
+### CREATION DE COLLECTION
 
 Comme vu précédement, la premiere insertion d'un document créé la ciblé collection automatiquement.
 Mais on peut égalemnet utiliser la fonction de Database [_createCollection_](https://docs.mongodb.com/manual/reference/method/db.createCollection/index.html)
@@ -1732,7 +1732,7 @@ true
 
 ```
 
-### SUPPRESSION D'UNE DATABASE
+### SUPPRESSION D'UNE DATABASE
 
 Pour supprimer une database on utilise la méthode de Database _dropDatabase()_
 On peut integrer des option à cette méthode, dont l'option _comment_ 
@@ -1801,7 +1801,7 @@ On va donc créer 2 utisateurs en leur donnant les droit suffisant pour effectue
 * un SuperUtilisateur : qui aura tous pouvoirs sur la base
 * un Administrateur : qui pourra administrer la base
 
-#### COMMANDE CREATEUSER()
+#### COMMANDE CREATEUSER()
 
 Pour créér un User on utilise la méthode de Database _createUser()_.
 
@@ -1833,7 +1833,7 @@ var tempRUser = {
 db.createUser(tempUser)
 ```
 
-#### LE SUPERUTILISATEUR
+#### LE SUPERUTILISATEUR
 
 Pour creer le SuperUtilisateur, on va utiliser un role pré-intégré à MongoDB : le role [**root**](https://docs.mongodb.com/manual/reference/built-in-roles/#superuser-roles).
 
@@ -1979,7 +1979,7 @@ Sur **robo3t** on peut créer un nouveau profil _administrator_ dans l'interface
 
 > pour la suite du tutoriel on se connecte en administrator
 
-#### LE ROLE DBOWNER
+#### LE ROLE DBOWNER
 
 Un utilisateur avec un role [dbOwner](https://docs.mongodb.com/manual/reference/built-in-roles/#dbOwner) à les droits suivants sur la Database dont il est propriétaire :
 * administration de la DataBase (creation/suppression collection, index ...).
@@ -2046,7 +2046,7 @@ Avec le rôle dbOwner l'utilisateur peut également administrer les droits sur l
 > Sur robo3t après connexion seule la Database _sw_ et ses collections sont visible.
 
 
-#### LES ROLES UTILISATEURS
+#### LES ROLES UTILISATEURS
 
 Les _user roles_ sont les rôle basiques donnés pour une exploitation standard d'une Database, à savoir:
 * read => lecture seule de la Database :
@@ -2133,7 +2133,7 @@ true
 
 #### AFFICHER LES USERS
 
-##### COMMANDE GETUSERS()
+##### COMMANDE GETUSERS()
 
 La methode de _Database_ _getUsers()_ permet d'afficher les utilisateurs de la Database ciblée.
 Elle peut être lancée par les utilisateurs possédant le role [userAdmin](https://docs.mongodb.com/manual/reference/built-in-roles/#userAdmin).
@@ -2261,7 +2261,7 @@ db.getUsers(options);
 
 ```
 
-##### COMMANDE GETUSER()
+##### COMMANDE GETUSER()
 
 La méthode de _Database_ _getUser()_ permet d'afficher un utilisateur en particulier.
 Elle prend en argument le nom du _user_ et peut intégrer un deuxième argument _options_ avec des paramêtre spécifique permettant d'afficher des infos supplémentaires:
@@ -2353,7 +2353,7 @@ Plusieurs méthodes de _Database_ permettent d'updater nos _users_, chacune à s
 * [revokeRolesFromUse()](https://docs.mongodb.com/manual/reference/method/db.revokeRolesFromUser/) : suppresion de roles.
 * [updateUser](https://docs.mongodb.com/manual/reference/method/db.updateUser/) : fonction generale de mofification.
 
-##### MODIFICATION DU PASSWORD
+##### MODIFICATION DU PASSWORD
 
 La méthode de _Database_ _changeUserPassword()_ permet de modifier le mot de passe d'un utilisateur.
 Elle prend en paramêtre le nom du user en premier paramètre et le nouveau password en deuxième paramêtre (ou la fonction passwordPrompt()).
@@ -2370,7 +2370,7 @@ db.changeUserPassword('swReader', 'swr456')
 
 ```
 
-##### AJOUT/SUPPRESSION DE ROLES
+##### AJOUT/SUPPRESSION DE ROLES
 
 La méthode _grantRolesToUser()_ permet d'attribuer des roles supplémentaires aux users et _revokeRolesFromUse()_ permet d'en enlever.
 Elles prennent toutes les 2 le nom du _user_ en premier paramêtre et les roles à attribuer/révoquer en deuxième.
@@ -2523,7 +2523,7 @@ null
 
 ```
 
-#### LA COLLECTION SYSTEM.USERS
+#### LA COLLECTION SYSTEM.USERS
 
 Toutes les informations concernant les **users** sont contenues dans la collection **system.users** de la database **admin**.
 Dans cette collections, chaque document décris un **users** pour l'ensemble des databases.
@@ -2596,7 +2596,7 @@ db.system.users.find({'db':'sw'})
 }
 ```
 
-### LES ROLES CUSTOM
+### LES ROLES CUSTOM
 
 En supplément des _Built-in Roles_ que l'on a utilisé pour donner des droits à nos users, MongoDB permet également de créer des User-Defined Roles.
 Ces rôle vont nous permettre d'attribuer des privilèges très spécifiques au users sur un granularité allant jusqu'à la collections.
@@ -2627,14 +2627,14 @@ Objet privilège :
 
 La liste des acions est disponibles sur la [documention](https://docs.mongodb.com/manual/reference/privilege-actions/#security-user-actions)
 
-##### LES ROLES PARENTS
+##### LES ROLES PARENTS
 
 L'argument _roles_ permet, d'intégrer des rôles parents dont notre rôle custom va hériter.
 Il contient une liste de rôles au format :
 * string : pour un rol 
 
 
-##### DEFINITION ET ATTRIBUTION DU ROLE CUSTOM
+##### DEFINITION ET ATTRIBUTION DU ROLE CUSTOM
 
 Pour l'exemple ci-dessous on créé une nouvelle collection dans notre database _sw_ nommé _temp_ dans laquelle on va faire une nouvelle insertion.
 
@@ -2729,7 +2729,7 @@ db.characters.insert({'name':'han'})
 Inserted 1 record(s) in 2ms
 ```
 
-#### AFFICHER LES ROLES CUSTOM
+#### AFFICHER LES ROLES CUSTOM
 
 Les méthode de _Database_ _getRole()_ permet d'afficher les informations d'un role.
 Elle prend en paramêtre le nom du rôle et un objet contenant des options permettant d'afficher des informations supplémentaires:
@@ -2796,7 +2796,7 @@ db.characters.insert({'name':'han'})
 WriteResult({ "nInserted" : 1 })
 ```
 
-#### SUPPRIMER DES PRIVILEGES 
+#### SUPPRIMER DES PRIVILEGES 
 
 La méthode _revokePrivilegesFromRole()_ permet de retirer des privilèges à un rôle custom.
 
@@ -2839,7 +2839,7 @@ db.grantRolesToRole("tempWriterOnly", roles)
 ```
 
 
-#### SUPPRIMER UN ROLE
+#### SUPPRIMER UN ROLE
 
 La méthode _revokeRolesFromRole()_ permet de retirer des rôles "parents" de notre rôle custom
 On l'utilise de la même façon que la méthode _grantRolesToRole()_.
