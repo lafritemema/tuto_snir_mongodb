@@ -1258,7 +1258,7 @@ Au fur et à mesure que les collections grandissent, les temps d'éxecution des 
 
 Pour récupérer un/des document(s) via un _find_ MongoDB va devoir parcourir l'ensemble de la collection jusqu'à trouver le/les bons éléments.
 C'est un **collectionScan**.
-Si la collection comprend plusieurs dizaine de millier de documents cette requête peut devenir très gourmande en ressources matériel.
+Si la collection comprend plusieurs centaines de millier de documents cette requête peut devenir très gourmande en ressources matériel.
 
 Pour remédier à cette situation, le systeme nous donne l'occasion d'ajouter des index MongoDB sur les collections.
 
@@ -1753,8 +1753,24 @@ Chaque **rôle** accorde des privilèges bien défini pour effectuer :
 
 On **accorde** ensuite ces **rôles** aux **Users** pour définir leurs droit. 
 
-MongoDB fournie une série de [**rôles prédéfini**](https://docs.mongodb.com/manual/reference/built-in-roles) qui fournissent les différents niveaux d'accès généralement nécessaires dans un système de base de données.
+MongoDB possède une série de **rôles prédéfinis** (Built-In roles) qui fournissent les différents niveaux d'accès généralement nécessaires dans un système de base de données.
 Mais il donne aussi l'occasion à l'administrateur de **créer ses propres rôles**.
+
+### LES ROLES PREDEFINI
+
+Les rôles prédéfinis nous permettent d'attribuer des droit facilement sur une database pour des profils standard (root, admin, reader ...).
+
+Certain rôles sont applicables à l'ensemble de nos databases, mais d'autre sont plus ciblés et doivent être associés à une database en particulier.
+Pour ces roles ciblés, on utilise un objet dérivant le role et la database associé :
+
+```json
+{
+    role: 'read',
+    db: 'sw'
+}
+```
+
+La liste des **built-in-roles** est disponible dans la [**documentation**](https://docs.mongodb.com/manual/reference/built-in-roles)
 
 ### ACTIVER/DESACTIVER L'AUTHENTIFICATION
 
@@ -1767,7 +1783,7 @@ La configuration de mongoDB est defini:
   ajouter (ou decommenter) la ligne :
   ```bash
   `security:
-        authorization:enabled
+        authorization: enabled
   ```
 
 * dans le fichier _/etc/mongodb.conf_ sur linux
@@ -1776,7 +1792,7 @@ La configuration de mongoDB est defini:
 
 Après le redemarrage du service MongoDB, la connexion nécessite une authentification avec un user et un mot de passe.
 
-### CREER LES PREMIERS USER
+### CREER DES USERS
 
 Sans droit sur la base, on ne peut rien faire !!  
 La fonction d'authentification ne peut donc être activé qu'après avoir au moins créé au moins un premier utilisateur avec un niveau d'accès suffisant pour creer des Database, des Users, des collections, attribuer des droits ...  
@@ -1785,7 +1801,7 @@ On va donc créer 2 utisateurs en leur donnant les droit suffisant pour effectue
 * un SuperUtilisateur : qui aura tous pouvoirs sur la base
 * un Administrateur : qui pourra administrer la base
 
-#### CREER UN USER
+#### COMMANDE CREATEUSER()
 
 Pour créér un User on utilise la méthode de Database _createUser()_.
 
@@ -1793,8 +1809,8 @@ Elle prend en paramêtre un objet composé (entre autre) des champs suivant):
 * user \<string\> : nom du user
 * pwd \<string|passwordPrompt()\> : string en clair ou utilisation de la fonction passwordPrompt()
 * customData \<object\> : pour intégrer des info supplémentaires custo
-* roles \<Array\> : liste des rôles format string `<role>`ou objet `{role:<role>, db:<database>`.
-* authenticationRestrictions \<Array\>: restriction d'accès de connexion sur les adresse IP.
+* roles \<Array\<role\>\> : liste des rôles format string `<role>` (pour les roles cutom) ou objet `{role:<role>, db:<database>`.
+* authenticationRestrictions \<Array\<objet\>\>: restriction d'accès de connexion sur les adresse IP.
 
 > D'autre option sont disponible, pour plus d'info, voir la [doc](https://docs.mongodb.com/manual/reference/method/db.createUser/index.html#db-createuser-authenticationrestrictions)
 
@@ -2115,15 +2131,793 @@ true
 }
 ```
 
+#### AFFICHER LES USERS
+
+##### COMMANDE GETUSERS()
+
+La methode de _Database_ _getUsers()_ permet d'afficher les utilisateurs de la Database ciblée.
+Elle peut être lancée par les utilisateurs possédant le role [userAdmin](https://docs.mongodb.com/manual/reference/built-in-roles/#userAdmin).
+
+Ex: Afficher les utilisateurs de la database _sw_.
+On lance la commande avec le user _swOwner_.
+
+```javascript
+use sw
+db.getUsers()
+
+=> Resultat (si authorisé):
+
+/* 1 */
+[
+    {
+        "_id" : "sw.swOwner",
+        "userId" : UUID("d70fadd0-20b8-4745-ab3e-011009b45808"),
+        "user" : "swOwner",
+        "db" : "sw",
+        "roles" : [ 
+            {
+                "role" : "dbOwner",
+                "db" : "sw"
+            }
+        ],
+        "mechanisms" : [ 
+            "SCRAM-SHA-1", 
+            "SCRAM-SHA-256"
+        ]
+    },
+    {
+        "_id" : "sw.swRWriter",
+        "userId" : UUID("211c833e-b9f7-47c7-9aea-3161e83a44c3"),
+        "user" : "swRWriter",
+        "db" : "sw",
+        "roles" : [ 
+            {
+                "role" : "readWrite",
+                "db" : "sw"
+            }
+        ],
+        "mechanisms" : [ 
+            "SCRAM-SHA-1", 
+            "SCRAM-SHA-256"
+        ]
+    },
+    {
+        "_id" : "sw.swReader",
+        "userId" : UUID("25ca9cbf-b7d4-4275-a4b2-83c183835296"),
+        "user" : "swReader",
+        "db" : "sw",
+        "roles" : [ 
+            {
+                "role" : "read",
+                "db" : "sw"
+            }
+        ],
+        "mechanisms" : [ 
+            "SCRAM-SHA-1", 
+            "SCRAM-SHA-256"
+        ]
+    }
+]
+
+=> Resultat (si non authorisé)
+Error: not authorized on sw to execute command { usersInfo: 1.0, lsid: { id: UUID("3c352429-4831-4f0b-ba25-f6675b209022") }, $db: "sw" }
+```
+
+La commande  _getUsers()_ peut intégrer un argument  _options_ sous la forme d'un objet contenant des paramêtres spécifiques :
+* _filter_ <document> : un objet permettant de filtrer les utilisateurs renvoyés par la fonction.
+* _showCredentials_ <boolean> : affiche les hash de password si _true_. Par défaut _false_.
+
+Ex: afficher les utilisateurs avec le role _read_ de la _Database_ _sw_.
+Je veux également afficher les hash des password.
+
+```javascript
+use sw
+
+//options avec un showCredentials à true
+// je filtre pour renvoyer un utilisateur avec un role read
+var options = {
+    filter:{'roles.role':'read'}
+    showCredentials: true
+};
+
+db.getUsers(options);
+
+=> Resultat:
+
+/* 1 */
+[
+    {
+        "_id" : "sw.swReader",
+        "userId" : UUID("25ca9cbf-b7d4-4275-a4b2-83c183835296"),
+        "user" : "swReader",
+        "db" : "sw",
+        // showCredentials : true donc affichage des credentials
+        "credentials" : {
+            "SCRAM-SHA-1" : {
+                "iterationCount" : 10000,
+                "salt" : "B8qAkI2iMn/OvKafY0T3MA==",
+                "storedKey" : "5LIWk5Xhlgfi87vW25Q2dEqIkvg=",
+                "serverKey" : "+fH7O6ZrXT0QElO07XmEUnmKUjw="
+            },
+            "SCRAM-SHA-256" : {
+                "iterationCount" : 15000,
+                "salt" : "E21sxe5rFK/PzXGSyaZVcFnF2hrXIgU9qNqgwA==",
+                "storedKey" : "k3SSxYUet2ptOqwDaFoTACgMDzfdfNe3chDwoBSjXzs=",
+                "serverKey" : "zZVSBQnZzxrcOb/gKAQfObPfTbP+iU0sSx9AtxCdHew="
+            }
+        },
+        "roles" : [ 
+            {
+                "role" : "read",
+                "db" : "sw"
+            }
+        ],
+        "mechanisms" : [ 
+            "SCRAM-SHA-1", 
+            "SCRAM-SHA-256"
+        ]
+    }
+]
+
+```
+
+##### COMMANDE GETUSER()
+
+La méthode de _Database_ _getUser()_ permet d'afficher un utilisateur en particulier.
+Elle prend en argument le nom du _user_ et peut intégrer un deuxième argument _options_ avec des paramêtre spécifique permettant d'afficher des infos supplémentaires:
+* _showCredentials_ <boolean> : affiche les hash de password si _true_. Par défaut _false_.
+* _showPrivileges_ <boolean> : affiche les droits (actions authorisées) si true. Par défaut _false_.
+* _showAuthenticationRestrictions_: <Boolean>, affiche les restrictions. Par défaut _false_.
+
+Ex: Affiche les informations de l'utilisateur _swReader_ et ses privilèges.
+
+```javascript
+//preparation des options
+var options = {
+    showPrivileges:true
+};
+// recuperation des information de swReader
+db.getUser('swReader', options);
+
+=> Resultat:
+
+/* 1 */
+{
+    "_id" : "sw.swReader",
+    "userId" : UUID("25ca9cbf-b7d4-4275-a4b2-83c183835296"),
+    "user" : "swReader",
+    "db" : "sw",
+    "mechanisms" : [ 
+        "SCRAM-SHA-1", 
+        "SCRAM-SHA-256"
+    ],
+    "roles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+        }
+    ],
+    "inheritedRoles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+        }
+    ],
+    //showPrivileges = true donc affichage des privileges
+    "inheritedPrivileges" : [ 
+        {
+            "resource" : {
+                "db" : "sw",
+                "collection" : ""
+            },
+            "actions" : [ 
+                "changeStream", 
+                "collStats", 
+                "dbHash", 
+                "dbStats", 
+                "find", 
+                "killCursors", 
+                "listCollections", 
+                "listIndexes", 
+                "planCacheRead"
+            ]
+        }, 
+        {
+            "resource" : {
+                "db" : "sw",
+                "collection" : "system.js"
+            },
+            "actions" : [ 
+                "changeStream", 
+                "collStats", 
+                "dbHash", 
+                "dbStats", 
+                "find", 
+                "killCursors", 
+                "listCollections", 
+                "listIndexes", 
+                "planCacheRead"
+            ]
+        }
+    ],
+    "inheritedAuthenticationRestrictions" : []
+}
+
+```
+
+#### MISE A JOUR DES USERS
+
+Plusieurs méthodes de _Database_ permettent d'updater nos _users_, chacune à sa spécialité :
+* [changeUserPassword()](https://docs.mongodb.com/manual/reference/method/db.changeUserPassword/) : modification du password.
+* [grantRolesToUser()](https://docs.mongodb.com/manual/reference/method/db.grantRolesToUser/) : ajout de nouveau roles.
+* [revokeRolesFromUse()](https://docs.mongodb.com/manual/reference/method/db.revokeRolesFromUser/) : suppresion de roles.
+* [updateUser](https://docs.mongodb.com/manual/reference/method/db.updateUser/) : fonction generale de mofification.
+
+##### MODIFICATION DU PASSWORD
+
+La méthode de _Database_ _changeUserPassword()_ permet de modifier le mot de passe d'un utilisateur.
+Elle prend en paramêtre le nom du user en premier paramètre et le nouveau password en deuxième paramêtre (ou la fonction passwordPrompt()).
+
+Ex: Modifier le mot de passe de l'utilisateur _swReader_.
+
+```javascript
+
+use sw
+
+//modification du passeword
+db.changeUserPassword('swReader', 'swr456')
+// ou db.changeUserPassword('swReader', passwordPrompt())
+
+```
+
+##### AJOUT/SUPPRESSION DE ROLES
+
+La méthode _grantRolesToUser()_ permet d'attribuer des roles supplémentaires aux users et _revokeRolesFromUse()_ permet d'en enlever.
+Elles prennent toutes les 2 le nom du _user_ en premier paramêtre et les roles à attribuer/révoquer en deuxième.
+
+Ex : Ajout du rôle _readWrite_ au _user_ _swReader_.
+
+```javascript
+
+use sw
+//nouveau role
+var newRoles = ['readWrite']
+//ajout du nouveau role à swReader
+db.grantRolesToUser('swReader', newRoles)
+
+//recuperation des info sur swReader
+db.getUser("swReader")
+
+/* 1 */
+{
+    "_id" : "sw.swReader",
+    "userId" : UUID("25ca9cbf-b7d4-4275-a4b2-83c183835296"),
+    "user" : "swReader",
+    "db" : "sw",
+    "roles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+        },
+        //le role readWrite sur sw est ajoute
+        {
+            "role" : "readWrite",
+            "db" : "sw"
+        }
+    ],
+    "mechanisms" : [ 
+        "SCRAM-SHA-1", 
+        "SCRAM-SHA-256"
+    ]
+}
+```
+
+Ex : Suppression du rôle _readWrite_ du _user_ _swReader_.
+
+```javascript
+use sw
+//role a revoquer
+var roleToDel = ['readWrite'];
+//suppression
+db.revokeRolesFromUser('swReader', roleToDel);
+
+//recuperation des info sur swReader
+db.getUser("swReader")
+/* 1 */
+{
+    "_id" : "sw.swReader",
+    "userId" : UUID("25ca9cbf-b7d4-4275-a4b2-83c183835296"),
+    "user" : "swReader",
+    "db" : "sw",
+    "roles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+
+            // le role readWrite a ete supprime
+        }
+    ],
+    "mechanisms" : [ 
+        "SCRAM-SHA-1", 
+        "SCRAM-SHA-256"
+    ]
+}
+
+```
+
+##### FONCTION UPDATEUSER()
+
+La fonction updateUser() permet de modifier toutes les informations du _user_, du _password_ au _customData_.
+Elle prend en premier paramêtre le nom du _user_ et en deuxième paramêtre un object définissant les paramêtres du _user_ a modifier, sous le même format que celui utilisé par la fonction _createUser()_.
+
+Ex: Ajouter des _customData_ et une limitation d'authentification en localhost pour _swReader_.  
+
+```javascript
+use sw
+
+//preparation des customdata
+var custom_data = {'login':'john', 'email':'john.doe@gmail.com'};
+
+//preparation des restriction d'authentifications
+var auth_lim = [{"clientSource" : ["127.0.0.0/8"]}];
+
+//update du user
+db.updateUser('swReader', {'customData':custom_data, "authenticationRestrictions":auth_lim})
+
+//recuperation des infos
+db.getUser('swReader', {'showAuthenticationRestrictions':true})
+
+=>Resultat :
+/* 1 */
+{
+    "_id" : "sw.swReader",
+    "userId" : UUID("25ca9cbf-b7d4-4275-a4b2-83c183835296"),
+    "user" : "swReader",
+    "db" : "sw",
+    "mechanisms" : [ 
+        "SCRAM-SHA-1", 
+        "SCRAM-SHA-256"
+    ],
+    "roles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+        }
+    ],
+    //affichage des restrictions
+    "authenticationRestrictions" : [ 
+        {
+            "clientSource" : [ 
+                "127.0.0.0/8"
+            ]
+        }
+    ],
+    "customData" : {
+        "login" : "john",
+        "email" : "john.doe@gmail.com"
+    },
+....
+```
+
+#### SUPPRESSION DES USERS
+
+La méthode de _Database_ _dropUser()_ permet de supprimer un utilisateur d'une _Database_.
+Elle prend en paramêtre le nom du _user_ à supprimer.
+
+La méthode _dropAllUsers()_ (sans paramêtre) permet de supprimer tous les utilisateurs d'une _Database_.
+
+Ex: Suppression de _swReader_.
+
+```javascript
+
+use sw
+//suppression du user swReader
+db.dropUser('swReader')
+
+=> Resultat:
+true
+
+db.getUser('swReader')
+=> Resultat:
+null
+
+```
+
+#### LA COLLECTION SYSTEM.USERS
+
+Toutes les informations concernant les **users** sont contenues dans la collection **system.users** de la database **admin**.
+Dans cette collections, chaque document décris un **users** pour l'ensemble des databases.
+
+On peut donc également utiliser les méthodes vue précédement sur cette collection pour recupérer/modifier des informations sur l'ensemble des users de notre database si besoin (mais privilégiez les méthodes dédiées pour les modifications)
+
+Bien sûr, il faut avoir au moins un **droit** en lecture sur la db **admin** pour lancer la requête (login en user _root_ ou _administrator_).
+
+Ex: lister les users de la db _sw_
+
+```javascript
+use admin
+db.system.users.find({'db':'sw'})
+
+=> Resultat:
+/* 1 */
+{
+    "_id" : "sw.swOwner",
+    "userId" : UUID("d70fadd0-20b8-4745-ab3e-011009b45808"),
+    "user" : "swOwner",
+    "db" : "sw",
+    "credentials" : {
+        "SCRAM-SHA-1" : {
+            "iterationCount" : 10000,
+            "salt" : "fNFcN4RpALwlywctILrAhQ==",
+            "storedKey" : "3F3a2Wt1CVW/LBqGgfPDzFfIPJw=",
+            "serverKey" : "9EKnjBc7C7qiJ8gKIvL8TTS2wuM="
+        },
+        "SCRAM-SHA-256" : {
+            "iterationCount" : 15000,
+            "salt" : "BrVM9DkMxlTkmE4U9KpncI6XYJ3C4o8/qxaAUg==",
+            "storedKey" : "vgrCGh5/vFAKy5iWaEVGgyI34X8zRv3CUO07uIdVbO0=",
+            "serverKey" : "x95bzbCOx5HehUMltl/rOlQ1kT0N6BJyDKGLd8s2qCs="
+        }
+    },
+    "roles" : [ 
+        {
+            "role" : "dbOwner",
+            "db" : "sw"
+        }
+    ]
+}
+
+/* 2 */
+{
+    "_id" : "sw.swRWriter",
+    "userId" : UUID("211c833e-b9f7-47c7-9aea-3161e83a44c3"),
+    "user" : "swRWriter",
+    "db" : "sw",
+    "credentials" : {
+        "SCRAM-SHA-1" : {
+            "iterationCount" : 10000,
+            "salt" : "33IHizeLg4a0gigdm/y/Ng==",
+            "storedKey" : "B178Ljmt8AP2KgvF7bpnWEWJirw=",
+            "serverKey" : "6a7XyCxohjOCcLa5VFtmemyIExE="
+        },
+        "SCRAM-SHA-256" : {
+            "iterationCount" : 15000,
+            "salt" : "B62d5TLxqtxIxfckKo7znLOwUd/HmZwWBaj9cg==",
+            "storedKey" : "tx8wfBN39vfmYwhx2iol68jtxFqcymuGGx3yQcl+eY0=",
+            "serverKey" : "d1ET4PbhnwiFRpXrhneR7QDUZ2WiriEiQTgvRaLTfxw="
+        }
+    },
+    "roles" : [ 
+        {
+            "role" : "readWrite",
+            "db" : "sw"
+        }
+    ]
+}
+```
+
+### LES ROLES CUSTOM
+
+En supplément des _Built-in Roles_ que l'on a utilisé pour donner des droits à nos users, MongoDB permet également de créer des User-Defined Roles.
+Ces rôle vont nous permettre d'attribuer des privilèges très spécifiques au users sur un granularité allant jusqu'à la collections.
+
+#### CREER UN ROLE
+
+La méthode de _Database_ _dropUser()_ permet de créé un rôle custom.
+Elle prend une serie de paramètres qui vont nous permettre de définir très précisement les droits associés.
+On passe en paramêtre de cette fonction un objet avec les arguments suivant:
+* _name_ \<string\> : le nom du role
+* _roles_ \<Array\<roles\>\> : une liste d'objet roles déjà existant.
+* _privileges_ \<Array\<privilege\>\>  : une liste d'objet definissant les privilèges
+* _authenticationRestrictions_ : une liste de restriction d'authentification (utilisation idem _createUser()_)
+
+##### LES PRIVILEGES
+
+L'argument _privilèges_ va nous permettre de définir des droits précis sur nos databases et collections.
+
+Il contient une liste d'objets contenant la resource ciblée (db et collection) et la liste des actions autorisées.
+
+Objet privilège :
+```json
+{
+    resources : {'db':'ma_db', collection:'ma_collection'},
+    actions : ['action1', 'action2' ...]
+}
+```
+
+La liste des acions est disponibles sur la [documention](https://docs.mongodb.com/manual/reference/privilege-actions/#security-user-actions)
+
+##### LES ROLES PARENTS
+
+L'argument _roles_ permet, d'intégrer des rôles parents dont notre rôle custom va hériter.
+Il contient une liste de rôles au format :
+* string : pour un rol 
 
 
+##### DEFINITION ET ATTRIBUTION DU ROLE CUSTOM
+
+Pour l'exemple ci-dessous on créé une nouvelle collection dans notre database _sw_ nommé _temp_ dans laquelle on va faire une nouvelle insertion.
+
+```javascript
+use sw
+db.temp.insert({'name':'obiwan'})
+```
+Maintenant créons un rôle _tempWriterOnly_ permettant de lire les collections de la database _sw_ et de faire des requête de type _find_ et _insert_ dans la collection temp.
+
+```javascript
+use admin
+//definition du role
+var roles = [{'role':'read', 'db':'sw'}]; //role built-in read sur la db sw
+
+//definition des privileges
+var privileges = [
+    {
+        'resource':{'db':"sw", "collection":'temp'}, //sur la db sw, collection temp
+        'actions':['find', 'insert'] //action find et insert authorisées
+    }
+]
+
+var role = {
+    'role': "tempWriterOnly",
+    'roles':roles,
+    'privileges': privileges
+}
+
+db.createRole(role)
+```
+
+Maitenant que le rôle est crée, on peut l'attribuer à un user.
+On créé un user _tempUser_ possédant le rôle _tempWriterOnly_. 
+
+```javascript
+//switch sur admin
+use admin
+
+//definition du tempUser
+var tempUser = {
+    "user":"tempUser",
+    "pwd":"tempUser123",
+    "roles":["tempWriterOnly"]
+}
+//creation du user
+db.createUser(tempUser)
+```
+
+On peut tester le résultat en lançant quelques commandes sur la base :
+* Lancer la commande sur un terminal :
+    `mongo --authenticationDatabase admin -u tempUser -p tempUser123`
+* Lancement des commande mongo  sur la collection _characters_:
+
+```javascript
+use sw
+db.characters.findOne({})
+
+=> Resultat : 
+/* 1 */
+{
+    "_id" : 3,
+    "name" : "Darth Vader",
+    "gender" : "male",
+    "homeworld" : "Tatooine",
+    "species" : "Human",
+    "score" : 197
+}
+
+db.characters.insert({'name':'han'})
+
+=> Resultat : 
+not authorized on sw to execute command { insert: "characters", ...
+```
+
+* Lancement des même commandes mongo sur la collection _temp_:
+
+```javascript
+
+db.temp.findOne({})
+
+=> Resultat : 
+/* 1 */
+{
+    "_id" : ObjectId("60539d09d6899f8fdf58591c"),
+    "name" : "obiwan"
+}
+
+db.characters.insert({'name':'han'})
+
+=> Resultat :
+
+Inserted 1 record(s) in 2ms
+```
+
+#### AFFICHER LES ROLES CUSTOM
+
+Les méthode de _Database_ _getRole()_ permet d'afficher les informations d'un role.
+Elle prend en paramêtre le nom du rôle et un objet contenant des options permettant d'afficher des informations supplémentaires:
+* showBuiltinRoles \<boolean\> : pour afficher toutes les information sur les roles inclus
+* showPrivileges \<boolean\> : pour afficher plus d'informations sur les privilèges.
+
+```javascript
+use admin
+db.getRole('tempWriterOnly')
+// ou db.getRole('tempWriterOnly', {'showPrivileges':true, showBuiltinRoles: true})
+
+=> Résultat :
+/* 1 */
+{
+    "role" : "tempWriterOnly",
+    "db" : "sw",
+    "isBuiltin" : false,
+    "roles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+        }
+    ],
+    "inheritedRoles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+        }
+    ]
+}
+```
+
+La methode _getRoles()_ permet d'afficher tous les roles custom de la database.
+Elle peut prendre les même options que _getRole()_.
+
+#### AJOUTER DES PRIVILEGES
+
+La méthode _grantPrivilegesToRole()_ permet d'ajouter des privilèges à un roles custom.
+Elle prend en paramêtre le nom du role et la liste des privilèges à ajouter.
+
+Ex: Ajout du privilège _insert_ sur la collection _characters_ de la database _sw_ pour le rôle _tempWriterOnly_.
+
+```javascript
+use admin
+var privileges = [
+    {'resource':{'db':'sw', 'collection':'characters'},
+     'actions':['insert']
+    }
+]
+
+db.grantPrivilegesToRole('tempWriterOnly', privileges)
+
+```
+
+Après cette action, tous les users possédant le role _tempWriterOnly_ peuvent effectuer des requetes de type _insert_ sur la collection _characters_
+
+Donc la commande suivante ne lève plus d'erreur lorsqu'elles sont executées par _tempUser_:
+
+```javascript
+use sw
+db.characters.insert({'name':'han'})
+
+=> Resultat :
+WriteResult({ "nInserted" : 1 })
+```
+
+#### SUPPRIMER DES PRIVILEGES 
+
+La méthode _revokePrivilegesFromRole()_ permet de retirer des privilèges à un rôle custom.
+
+Comme la méthode _grantPrivilegesToRole()_, elle prend en paramêtre le nom du rôle et les privilèges à supprimer.
 
 
+Ex: Suppression du  privilège _insert_ sur la collection _characters_ de la database _sw_ pour le rôle _tempWriterOnly_.
+
+```javascript
+use admin
+var privileges = [
+    {'resource':{'db':'sw', 'collection':'characters'},
+     'actions':['insert']
+    }
+]
+
+db.revokePrivilegesFromRole('tempWriterOnly', privileges)
+
+```
+
+Après cette action, les utilisateurs possédant le rôle _tempWriterOnly_ ne pourront plus faire des requêtes de type _insert_ sur la collection _characters_. 
 
 
+#### AJOUTER UN ROLE
+
+Comme vu précédement lors de la création, le documents décrivant le rôle peut contenir une liste de rôles "parents" dont il va hériter les droits.
+
+On peut intégrer un nouveau rôle parent à notre rôle custom en utilisant la méthode  de database _grantRolesToRole()_.
+Elle prend en paramêtre le nom du rôle à modifier et une liste de rôle à ajouter.
+
+Ex: Ajout du rôle _readWrite_ sur la database _sw_ pour notre rôle custom _tempWriterOnly_.
+
+```javascript
+use admin
+var roles = [
+    {'role':'readWrite', 'db':'sw'}
+]
+
+db.grantRolesToRole("tempWriterOnly", roles)
+```
 
 
+#### SUPPRIMER UN ROLE
 
+La méthode _revokeRolesFromRole()_ permet de retirer des rôles "parents" de notre rôle custom
+On l'utilise de la même façon que la méthode _grantRolesToRole()_.
 
+Ex: Supression du rôle _readWrite_ sur la database _sw_ pour notre rôle custom _tempWriterOnly_.
 
+```javascript
+use admin
+var roles = [
+    {'role':'readWrite', 'db':'sw'}
+]
 
+db.revokeRolesFromRole("tempWriterOnly", roles)
+```
+
+#### UPDATER UN ROLE
+
+La méthode _updateRole()_ permet de modifier plus profondement le role custom avec la possibilité de le redéfinir complètement.
+
+Elle prend en paramêtre le nom du rôle et un objet le redefinissant.
+Cet objet est sous le même format que celui utilisé dans la méthode _createRole()_
+
+Ex: Redefinission du rôle _tempWriterOnly_ pour un droit lecture/ecriture sur toute la db sw et un droit pour effectuer des requêtes de type _find_ sur la collection _characters_ de la database _st_.
+
+```javascript
+use admin
+var roles = [{'role':'readWrite', 'db':'sw'}]; //role built-in read sur la db sw
+
+//definition des privileges
+var privileges = [
+    {
+        'resource':{'db':"st", "collection":'characters'}, //sur la db sw, collection temp
+        'actions':['find'] //action find et insert authorisées
+    }
+]
+
+db.updateRole("tempWriterOnly",
+    {
+        'roles':roles,
+        'privileges': privileges
+    }
+)
+```
+
+#### SUPPRIMER LES ROLES CUSTOM
+
+La méthode de database _dropRole()_ permet de supprimer un rôle custom.
+Elle prend en paramètre le nom du role à supprimer.
+
+```javascript
+use admin
+db.ropRole("tempWriterOnly")
+```
+
+La méthode _dropAllRoles()_ permet de supprimer tous les rôles custom de la database.
+
+#### LA COLLECTION SYSTEM.ROLES
+
+Toutes les informations concernant les **role** sont contenues dans la collection **system.roles** de la database **admin**.
+Dans cette collections, chaque document décris un **rôle** pour l'ensemble des databases.
+
+On peut donc également utiliser les méthodes vue précédement sur cette collection pour recupérer/modifier des informations sur l'ensemble des users de notre database si besoin (mais privilégiez les méthodes dédiées pour les modifications)
+
+Ex : afficher la liste des rôles hérités de tous les rôles ayants des droit hérités sur la database _sw_.
+
+```javascript
+use admin
+db.system.roles.find({'roles.db':'sw'},{roles:1})
+
+=> Resultat:
+{
+    "_id" : "admin.tempWriterOnly",
+    "roles" : [ 
+        {
+            "role" : "read",
+            "db" : "sw"
+        }
+    ]
+}
+
+```
